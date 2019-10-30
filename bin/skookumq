@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# set -x
+#
+###################
+macos=false
+###################
+if [[ ! -f "${0%/*}/../lib/quotes.csv" ]]; then
+	printf '%s: %s\n' 'ERROR! Unable to find quotes.csv in' "${0%/*}/lib/" >&2
+	exit 1
+else
+	qfile="${0%/*}/../lib/quotes.csv"
+fi
+###################
+print_quote () {
+	local q=$@
+	printf '"%s"\n\t- %s\n' "$(awk -F\| '{print $2}' <<<"$q")" "$(awk -F\| '{print $1}' <<<"$q")"
+}
+get_quote () {
+	local a=$1
+	if [[ -n "$a" ]]; then
+		awk -v p="$a" -F\| 'tolower($1) ~ tolower(p)' "$qfile"
+	else
+		cat "$qfile"
+	fi | sort -R | tail -1
+}
+mac_notify () {
+    local okay=Okay
+    local cancel="You're damn right it's okay"
+    local message=$@
+    osascript <<EOF >/dev/null
+			tell application "Finder"
+				activate
+        set theDialogText to "${message:-"Alert!"}"
+        display dialog theDialogText buttons {"${cancel:-"Also Okay"}", "${okay:-Okay}"} default button "${okay:-Okay}" cancel button "${cancel:-"Also Okay"}"
+			end tell
+EOF
+}
+###################
+while getopts Ma: opt; do
+	case $opt in
+		M)	macos=true;;
+		a)	author=$OPTARG;;
+	esac
+done
+###################	
+q=$(get_quote "$author")
+if [[ $macos == true ]]; then
+	mac_notify $(print_quote "$q" | sed 's/"/\\"/g')
+else
+	print_quote "$q"
+fi
