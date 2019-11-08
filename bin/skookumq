@@ -5,30 +5,38 @@
 ###################
 macos=false
 ###################
-if [[ ! -f "${0%/*}/../lib/quotes.csv" ]]; then
-	printf '%s: %s\n' 'ERROR! Unable to find quotes.csv in' "${0%/*}/lib/" >&2
+if [[ ! -d "${0%/*}/../lib" ]]; then
+	printf '%s: %s\n' 'ERROR! Unable to find quote library at:' "${0%/*}/lib/" >&2
 	exit 1
 else
-	qfile="${0%/*}/../lib/quotes.csv"
+	libdir="${0%/*}/../lib"
 fi
 ###################
 print_quote () {
 	local q=$@
 	printf '"%s"\n\t- %s\n' "$(awk -F\| '{print $2}' <<<"$q")" "$(awk -F\| '{print $1}' <<<"$q")"
 }
-get_quote () {
+get_quote2 () {
 	local a=$1
+	local f
+	local p
+	local q
 	if [[ -n "$a" ]]; then
-		awk -v p="$a" -F\| 'tolower($1) ~ tolower(p)' "$qfile"
+		p="*${a}*"
+		f=$(find "$libdir" -type f -iname "$p" | head -1)
 	else
-		cat "$qfile"
-	fi | sort -R | tail -1
+		f=$(find "$libdir" -type f -print | sort -R | tail -1)
+	fi
+	a=${f##*/}
+	a=${a/_/ }
+	q=$(cat "$f" | sort -R | tail -1)
+	printf '%s|%s\n' "$a" "$q"
 }
 mac_notify () {
     local okay=Okay
     local cancel="You're damn right it's okay"
     local message=$@
-    osascript <<EOF >/dev/null
+    osascript <<EOF &>/dev/null
 			tell application "Finder"
 				activate
         set theDialogText to "${message:-"Alert!"}"
@@ -44,7 +52,7 @@ while getopts Ma: opt; do
 	esac
 done
 ###################	
-q=$(get_quote "$author")
+q=$(get_quote2 "$author")
 if [[ $macos == true ]]; then
 	mac_notify $(print_quote "$q" | sed 's/"/\\"/g')
 else
